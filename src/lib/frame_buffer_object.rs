@@ -12,7 +12,6 @@ use super::gl::{
 };
 use super::{app::App, texture::Texture};
 
-#[derive(Debug)]
 pub struct FrameBufferObject {
     id: u32,
     width: i32,

@@ -19,7 +19,11 @@ use winit::{
     event_loop::ActiveEventLoop, raw_window_handle::HasWindowHandle, window::Window,
 };
 
-use super::{effects::Effect, extensions::Extensions, gl::{self, COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT}};
+use super::{
+    effects::{Effect, pixelate::Pixelate},
+    extensions::Extensions,
+    gl::{self, COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT},
+};
 
 pub struct App {
     window: Window,
@@ -90,7 +94,7 @@ impl App {
             surface,
             context,
             size,
-            effects: vec![],
+            effects: vec![Box::new(Pixelate::new(extensions.clone(), &size, 2.0)?)],
             extensions,
         });
     }
@@ -105,8 +109,13 @@ impl App {
         Ok(())
     }
 
-    fn resize(&mut self, size: PhysicalSize<u32>) {
+    fn resize(&mut self, size: PhysicalSize<u32>) -> Result<()> {
         self.size = size;
+        self.effects // Resize every effects
+            .iter_mut()
+            .try_for_each(|effect| -> Result<()> { effect.resize(size) })?;
+
+        Ok(())
     }
 }
 
@@ -149,7 +158,7 @@ impl ApplicationHandler for AppState {
             }
             WindowEvent::Resized(size) => {
                 if let Self::Initialized(app) = self {
-                    app.resize(size);
+                    app.resize(size).unwrap(); // TODO: Handle errors correctly
                 }
             }
             _ => {}

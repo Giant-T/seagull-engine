@@ -4,10 +4,7 @@ use anyhow::Result;
 
 type GlGetTextureHandleARB = unsafe extern "system" fn(id: u32) -> u64;
 type GlMakeTextureResidentARB = unsafe extern "system" fn(handle: u64) -> c_void;
-type GlCreateShaderProgramv =
-    unsafe extern "system" fn(shader_type: u32, count: i32, code: &CStr) -> u32;
 
-#[derive(Debug)]
 pub struct Extensions {
     pub gl_get_texture_handle_arb: GlGetTextureHandleARB,
     pub gl_make_texture_handle_arb: GlMakeTextureResidentARB,

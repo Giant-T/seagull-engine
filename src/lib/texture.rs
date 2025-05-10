@@ -10,7 +10,6 @@ use super::{
     },
 };
 
-#[derive(Debug)]
 pub struct Texture {
     pub id: u32,
     handle: u64,

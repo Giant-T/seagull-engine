@@ -3,5 +3,7 @@ pub mod effects;
 pub mod extensions;
 pub mod frame_buffer_object;
 pub mod gl;
-pub mod shader;
+pub mod program;
 pub mod texture;
+pub mod vertex_buffer;
+pub mod vertex_array;
