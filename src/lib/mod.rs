@@ -1,7 +1,7 @@
 pub mod app;
 pub mod effects;
 pub mod extensions;
-pub mod frame_buffer_object;
+pub mod frame_buffer;
 pub mod gl;
 pub mod program;
 pub mod texture;

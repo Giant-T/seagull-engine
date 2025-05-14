@@ -22,4 +22,19 @@ impl VertexArray {
 
         Self { id, vertex_buffer }
     }
+
+    pub fn draw(&self, mode: u32) {
+        unsafe {
+            gl::BindVertexArray(self.id);
+            gl::DrawArrays(mode, 0, self.vertex_buffer.vertex_count);
+        }
+    }
+}
+
+impl Drop for VertexArray {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteVertexArrays(1, &self.id);
+        }
+    }
 }

@@ -10,9 +10,11 @@ use super::{
     },
 };
 
+// TODO: create an enum for texture formats
+
 pub struct Texture {
     pub id: u32,
-    handle: u64,
+    pub handle: u64,
     format: u32,
     extensions: Rc<Extensions>,
 }
@@ -29,9 +31,11 @@ impl Texture {
             gl::TextureParameteri(id, TEXTURE_WRAP_S, CLAMP_TO_EDGE as i32);
             gl::TextureParameteri(id, TEXTURE_WRAP_T, CLAMP_TO_EDGE as i32);
 
-            handle = (extensions.gl_get_texture_handle_arb)(id.into());
-            (extensions.gl_make_texture_handle_arb)(handle);
+            handle = (extensions.gl_get_texture_handle_arb)(id);
+            (extensions.gl_make_texture_handle_resident_arb)(handle);
         }
+
+        println!("Texture {id} created successfully");
 
         Ok(Self {
             id,
@@ -53,7 +57,7 @@ impl Texture {
             gl::TextureParameteri(self.id, TEXTURE_WRAP_T, CLAMP_TO_EDGE as i32);
 
             self.handle = (self.extensions.gl_get_texture_handle_arb)(self.id.into());
-            (self.extensions.gl_make_texture_handle_arb)(self.handle);
+            (self.extensions.gl_make_texture_handle_resident_arb)(self.handle);
         }
 
         Ok(())

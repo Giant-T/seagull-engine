@@ -12,16 +12,16 @@ use super::gl::{
 };
 use super::{app::App, texture::Texture};
 
-pub struct FrameBufferObject {
+pub struct FrameBuffer {
     id: u32,
     width: i32,
     height: i32,
-    texture: Texture,
+    pub texture: Texture,
     depth_texture: Texture,
     extensions: Rc<Extensions>,
 }
 
-impl FrameBufferObject {
+impl FrameBuffer {
     pub fn new(extensions: Rc<Extensions>, width: i32, height: i32) -> Result<Self> {
         let mut id = 0;
         unsafe {
@@ -37,9 +37,9 @@ impl FrameBufferObject {
 
             let status = gl::CheckNamedFramebufferStatus(id, FRAMEBUFFER);
 
+            Self::print_frame_buffer_status(status);
             if status != FRAMEBUFFER_COMPLETE {
-                // TODO: Maybe return an error
-                Self::print_frame_buffer_status(status);
+                return Err(anyhow::anyhow!("FrameBuffer non complete"));
             }
         }
 
@@ -107,7 +107,7 @@ impl FrameBufferObject {
     }
 }
 
-impl Drop for FrameBufferObject {
+impl Drop for FrameBuffer {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteFramebuffers(1, &self.id);

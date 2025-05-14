@@ -30,8 +30,8 @@ pub struct App {
     context: PossiblyCurrentContext,
     surface: Surface<WindowSurface>,
     pub size: PhysicalSize<u32>,
-    extensions: Rc<Extensions>,
-    effects: Vec<Box<dyn Effect>>,
+    pub extensions: Rc<Extensions>,
+    pixelate: Pixelate,
 }
 
 impl App {
@@ -86,15 +86,17 @@ impl App {
             gl::load_with(|s| get_proc_address(CString::new(s).unwrap().as_c_str()));
             extensions = Rc::new(Extensions::load_extensions(get_proc_address)?);
             gl::Viewport(0, 0, size.width as i32, size.height as i32);
-            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            gl::ClearColor(0.2, 0.2, 0.2, 1.0);
         }
+
+        let pixelate = Pixelate::new(extensions.clone(), &size, 2.0)?;
 
         return Ok(Self {
             window,
             surface,
             context,
             size,
-            effects: vec![Box::new(Pixelate::new(extensions.clone(), &size, 2.0)?)],
+            pixelate,
             extensions,
         });
     }
@@ -103,17 +105,15 @@ impl App {
         unsafe {
             gl::Clear(DEPTH_BUFFER_BIT | COLOR_BUFFER_BIT);
         }
-        self.surface.swap_buffers(&self.context)?;
-        // TODO: Handle errors correctly
+        self.pixelate.apply(&self, None, None)?;
 
+        self.surface.swap_buffers(&self.context)?;
         Ok(())
     }
 
     fn resize(&mut self, size: PhysicalSize<u32>) -> Result<()> {
         self.size = size;
-        self.effects // Resize every effects
-            .iter_mut()
-            .try_for_each(|effect| -> Result<()> { effect.resize(size) })?;
+        self.pixelate.resize(size)?;
 
         Ok(())
     }
@@ -154,6 +154,7 @@ impl ApplicationHandler for AppState {
             WindowEvent::RedrawRequested => {
                 if let Self::Initialized(app) = self {
                     app.render().unwrap(); // TODO: Handle errors correctly
+                    app.window.request_redraw();
                 }
             }
             WindowEvent::Resized(size) => {
