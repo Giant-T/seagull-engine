@@ -1,12 +1,13 @@
-use lib::app::AppState;
-use winit::event_loop::{ControlFlow, EventLoop};
+use handler::AppHandler;
 
-mod lib;
+use seagull_lib::app::App;
+
+mod handler;
+mod pixelate;
 
 fn main() {
-    let event_loop = EventLoop::new().unwrap();
-    event_loop.set_control_flow(ControlFlow::Poll);
+    env_logger::init();
 
-    let mut app_state = AppState::default();
-    event_loop.run_app(&mut app_state).unwrap();
+    let mut app = App::new(|extensions, size| Ok(Box::new(AppHandler::new(extensions, size)?)));
+    app.run().unwrap();
 }

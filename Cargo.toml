@@ -1,5 +1,5 @@
 [package]
-name = "rust-playground"
+name = "seagull"
 version = "0.1.0"
 edition = "2024"
 
@@ -8,6 +8,17 @@ gl_generator = "0.14"
 
 [dependencies]
 anyhow = "1.0.98"
+env_logger = "0.11.8"
 glutin = "0.32.2"
 glutin-winit = "0.5.0"
+log = "0.4.27"
 winit = "0.30.9"
+
+[lib]
+name = "seagull_lib"
+path = "src/lib/mod.rs"
+crate-type = ["lib"]
+
+[[bin]]
+name = "seagull"
+path = "src/main.rs"

@@ -14,28 +14,40 @@ use glutin::{
     surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface},
 };
 use glutin_winit::DisplayBuilder;
+use log::info;
 use winit::{
-    application::ApplicationHandler, dpi::PhysicalSize, event::WindowEvent,
-    event_loop::ActiveEventLoop, raw_window_handle::HasWindowHandle, window::Window,
+    application::ApplicationHandler,
+    dpi::PhysicalSize,
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    raw_window_handle::HasWindowHandle,
+    window::Window,
 };
 
 use super::{
-    effects::{Effect, pixelate::Pixelate},
     extensions::Extensions,
     gl::{self, COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT},
 };
 
-pub struct App {
+// TODO: Should handle errors
+pub trait HandleApp {
+    fn render(&self, context: &AppContext) -> Result<()>;
+    fn resize(&mut self, size: &PhysicalSize<u32>) -> Result<()>;
+}
+
+type HandlerCreator = fn(extensions: Rc<Extensions>, size: &PhysicalSize<u32>) -> Result<Box<dyn HandleApp>>;
+
+pub struct AppContext {
     window: Window,
     context: PossiblyCurrentContext,
     surface: Surface<WindowSurface>,
     pub size: PhysicalSize<u32>,
     pub extensions: Rc<Extensions>,
-    pixelate: Pixelate,
+    pub handler: Box<dyn HandleApp>,
 }
 
-impl App {
-    fn new(event_loop: &ActiveEventLoop) -> Result<Self> {
+impl AppContext {
+    fn new(event_loop: &ActiveEventLoop, handler_creator: HandlerCreator) -> Result<Self> {
         let attributes = Window::default_attributes().with_title("Rust Playground");
 
         let template = ConfigTemplateBuilder::new()
@@ -89,23 +101,24 @@ impl App {
             gl::ClearColor(0.2, 0.2, 0.2, 1.0);
         }
 
-        let pixelate = Pixelate::new(extensions.clone(), &size, 2.0)?;
+        info!("Initialized the window");
 
         return Ok(Self {
             window,
             surface,
             context,
             size,
-            pixelate,
+            handler: handler_creator(extensions.clone(), &size)?,
             extensions,
         });
     }
 
-    fn render(&self) -> Result<()> {
+    fn render(&mut self) -> Result<()> {
         unsafe {
             gl::Clear(DEPTH_BUFFER_BIT | COLOR_BUFFER_BIT);
         }
-        self.pixelate.apply(&self, None, None)?;
+
+        self.handler.render(self)?;
 
         self.surface.swap_buffers(&self.context)?;
         Ok(())
@@ -113,27 +126,42 @@ impl App {
 
     fn resize(&mut self, size: PhysicalSize<u32>) -> Result<()> {
         self.size = size;
-        self.pixelate.resize(size)?;
+
+        self.handler.resize(&size)?;
+
+        Ok(())
+    }
+}
+
+pub struct App {
+    state: AppState,
+}
+
+impl App {
+    pub fn new(handler_creator: HandlerCreator) -> Self {
+        let state = AppState::Uninitialized(handler_creator);
+        return Self { state };
+    }
+
+    pub fn run(&mut self) -> Result<()> {
+        let event_loop = EventLoop::new()?;
+        event_loop.set_control_flow(ControlFlow::Poll);
+
+        event_loop.run_app(&mut self.state)?;
 
         Ok(())
     }
 }
 
 pub enum AppState {
-    Uninitialized,
-    Initialized(App),
-}
-
-impl Default for AppState {
-    fn default() -> Self {
-        Self::Uninitialized
-    }
+    Uninitialized(HandlerCreator),
+    Initialized(AppContext),
 }
 
 impl ApplicationHandler for AppState {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        if let Self::Uninitialized = self {
-            let app = App::new(event_loop);
+        if let Self::Uninitialized(handler_creator) = self {
+            let app = AppContext::new(event_loop, *handler_creator);
 
             if let Ok(app) = app {
                 *self = Self::Initialized(app);

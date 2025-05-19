@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use anyhow::Result;
+use log::info;
 
 use super::extensions::Extensions;
 use super::gl::{
@@ -10,7 +11,7 @@ use super::gl::{
     FRAMEBUFFER_INCOMPLETE_MULTISAMPLE, FRAMEBUFFER_INCOMPLETE_READ_BUFFER, FRAMEBUFFER_UNDEFINED,
     FRAMEBUFFER_UNSUPPORTED, RGBA8,
 };
-use super::{app::App, texture::Texture};
+use super::{app::AppContext, texture::Texture};
 
 pub struct FrameBuffer {
     id: u32,
@@ -42,6 +43,8 @@ impl FrameBuffer {
                 return Err(anyhow::anyhow!("FrameBuffer non complete"));
             }
         }
+
+        info!("Initialized frame buffer {id}");
 
         Ok(Self {
             id,
@@ -84,7 +87,7 @@ impl FrameBuffer {
     ///
     /// Unbinds this frame buffer to stop being the current rendering target
     ///
-    pub fn unbind(&self, app: &App) {
+    pub fn unbind(&self, app: &AppContext) {
         unsafe {
             gl::Viewport(0, 0, app.size.width as i32, app.size.height as i32);
             gl::BindFramebuffer(FRAMEBUFFER, 0);
@@ -93,16 +96,16 @@ impl FrameBuffer {
 
     fn print_frame_buffer_status(status: u32) {
         match status {
-            FRAMEBUFFER_COMPLETE => println!("Framebuffer complete"),
-            FRAMEBUFFER_UNDEFINED => println!("Framebuffer undefined"),
-            FRAMEBUFFER_INCOMPLETE_ATTACHMENT => println!("Incomplete attachment"),
-            FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => println!("Incomplete attachment"),
-            FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER => println!("Incomplete draw buffer"),
-            FRAMEBUFFER_INCOMPLETE_READ_BUFFER => println!("Incomplete read buffer"),
-            FRAMEBUFFER_UNSUPPORTED => println!("Framebuffer unsupported"),
-            FRAMEBUFFER_INCOMPLETE_MULTISAMPLE => println!("Incomplete multisample"),
-            FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS => println!("Incomplete layer targets"),
-            _ => println!("Unknown framebuffer error: {status}"),
+            FRAMEBUFFER_COMPLETE => info!("Framebuffer complete"),
+            FRAMEBUFFER_UNDEFINED => info!("Framebuffer undefined"),
+            FRAMEBUFFER_INCOMPLETE_ATTACHMENT => info!("Incomplete attachment"),
+            FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => info!("Incomplete attachment"),
+            FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER => info!("Incomplete draw buffer"),
+            FRAMEBUFFER_INCOMPLETE_READ_BUFFER => info!("Incomplete read buffer"),
+            FRAMEBUFFER_UNSUPPORTED => info!("Framebuffer unsupported"),
+            FRAMEBUFFER_INCOMPLETE_MULTISAMPLE => info!("Incomplete multisample"),
+            FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS => info!("Incomplete layer targets"),
+            _ => info!("Unknown framebuffer error: {status}"),
         }
     }
 }

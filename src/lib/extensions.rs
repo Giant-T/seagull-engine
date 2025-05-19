@@ -1,6 +1,7 @@
 use std::ffi::{CStr, CString, c_void};
 
 use anyhow::Result;
+use log::info;
 
 type GlGetTextureHandleARB = unsafe extern "system" fn(id: u32) -> u64;
 type GlMakeTextureHandleResidentARB = unsafe extern "system" fn(handle: u64) -> c_void;
@@ -33,8 +34,11 @@ impl Extensions {
                     gl_get_texture_handle_arb: std::mem::transmute::<_, GlGetTextureHandleARB>(
                         get_texture_handle_arb_ptr,
                     ),
-                    gl_make_texture_handle_resident_arb: std::mem::transmute::<_, GlMakeTextureHandleResidentARB>(
-                        make_texture_handle_arb_ptr,
+                    gl_make_texture_handle_resident_arb: std::mem::transmute::<
+                        _,
+                        GlMakeTextureHandleResidentARB,
+                    >(
+                        make_texture_handle_arb_ptr
                     ),
                     gl_program_uniform_1ui_arb: std::mem::transmute::<_, GlProgramUniform1ui64ARB>(
                         program_uniform_1ui_arb,
@@ -42,9 +46,10 @@ impl Extensions {
                 };
             }
         } else {
-            panic!("An extension function was not available!");
+            return Err(anyhow::anyhow!("An extension function was not available!"));
         }
 
+        info!("Initialized access to OpenGL extensions");
         return Ok(extensions);
     }
 }

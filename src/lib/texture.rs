@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use anyhow::Result;
+use log::info;
 
 use super::{
     extensions::Extensions,
@@ -35,7 +36,7 @@ impl Texture {
             (extensions.gl_make_texture_handle_resident_arb)(handle);
         }
 
-        println!("Texture {id} created successfully");
+        info!("Initialized texture {id}");
 
         Ok(Self {
             id,

@@ -1,5 +1,7 @@
 use std::os::raw::c_void;
 
+use log::info;
+
 use super::gl::{self, STATIC_DRAW};
 
 pub struct VertexBuffer {
@@ -15,6 +17,8 @@ impl VertexBuffer {
             gl::CreateBuffers(1, &mut id);
             gl::NamedBufferData(id, size_of_val(vertices) as isize, vertices.as_ptr() as *const c_void, STATIC_DRAW);
         }
+
+        info!("Initialized vertex buffer {id}");
 
         Self {
             id,

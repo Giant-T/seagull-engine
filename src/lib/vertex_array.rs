@@ -1,3 +1,5 @@
+use log::info;
+
 use super::{
     gl::{self, FALSE, FLOAT},
     vertex_buffer::VertexBuffer,
@@ -19,6 +21,8 @@ impl VertexArray {
             gl::VertexArrayAttribBinding(id, 0, 0);
             gl::EnableVertexArrayAttrib(id, 0);
         }
+
+        info!("Initialized vertex array {id}");
 
         Self { id, vertex_buffer }
     }

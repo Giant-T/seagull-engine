@@ -1,6 +1,9 @@
-use std::ffi::{CString, c_char};
+use std::{ffi::{c_char, CString}, rc::Rc};
 
 use anyhow::Result;
+use log::info;
+
+use crate::extensions::Extensions;
 
 use super::gl::{
     self, FALSE, FRAGMENT_SHADER_BIT, LINK_STATUS, VALIDATE_STATUS, VERTEX_SHADER_BIT,
@@ -9,10 +12,11 @@ use super::gl::{
 
 pub struct Shader {
     pub id: u32,
+    extensions: Rc<Extensions>,
 }
 
 impl Shader {
-    pub fn new(shader_type: u32, source: &str) -> Result<Self> {
+    pub fn new(extensions: Rc<Extensions>, shader_type: u32, source: &str) -> Result<Self> {
         let id;
         unsafe {
             let c_str = CString::new(source)?;
@@ -27,9 +31,9 @@ impl Shader {
             }
         }
 
-        println!("Shader {id} was created successfully");
+        info!("Initialized shader {id}");
 
-        Ok(Self { id })
+        Ok(Self { id, extensions })
     }
 
     pub fn get_loc(&self, name: &str) -> Result<i32> {
@@ -43,6 +47,26 @@ impl Shader {
             }
             Ok(loc)
         };
+    }
+
+    pub fn uniform_1ui_arb(&self, location: i32, val: u64) {
+        unsafe {
+            (self.extensions.gl_program_uniform_1ui_arb)(
+                self.id,
+                location,
+                val,
+            );
+        }
+    }
+
+    pub fn uniform_1f(&self, location: i32, val: f32) {
+        unsafe {
+            gl::ProgramUniform1f(
+                self.id,
+                location,
+                val,
+            );
+        }
     }
 }
 
@@ -74,7 +98,7 @@ impl Pipeline {
             }
         }
 
-        println!("Pipeline {id} was created successfully");
+        info!("Pipeline {id} was created successfully");
 
         Ok(Self { id })
     }
