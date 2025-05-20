@@ -3,6 +3,9 @@ use std::rc::Rc;
 use anyhow::Result;
 use log::info;
 
+use crate::app::AppContext;
+use crate::texture::Texture;
+
 use super::extensions::Extensions;
 use super::gl::{
     self, COLOR_ATTACHMENT0, DEPTH_ATTACHMENT, DEPTH_COMPONENT24, FRAMEBUFFER,
@@ -11,7 +14,6 @@ use super::gl::{
     FRAMEBUFFER_INCOMPLETE_MULTISAMPLE, FRAMEBUFFER_INCOMPLETE_READ_BUFFER, FRAMEBUFFER_UNDEFINED,
     FRAMEBUFFER_UNSUPPORTED, RGBA8,
 };
-use super::{app::AppContext, texture::Texture};
 
 pub struct FrameBuffer {
     id: u32,
@@ -87,9 +89,9 @@ impl FrameBuffer {
     ///
     /// Unbinds this frame buffer to stop being the current rendering target
     ///
-    pub fn unbind(&self, app: &AppContext) {
+    pub fn unbind(&self, context: &AppContext) {
         unsafe {
-            gl::Viewport(0, 0, app.size.width as i32, app.size.height as i32);
+            gl::Viewport(0, 0, context.size.width as i32, context.size.height as i32);
             gl::BindFramebuffer(FRAMEBUFFER, 0);
         }
     }

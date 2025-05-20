@@ -40,4 +40,8 @@ impl HandleApp for AppHandler {
 
         Ok(())
     }
+
+    fn handle_error(&self, error: anyhow::Error) {
+        todo!()
+    }
 }

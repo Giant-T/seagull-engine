@@ -5,7 +5,7 @@ use std::{
     rc::Rc,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Error, Result};
 use glutin::{
     config::ConfigTemplateBuilder,
     context::{ContextAttributesBuilder, PossiblyCurrentContext},
@@ -29,11 +29,11 @@ use super::{
     gl::{self, COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT},
 };
 
-// TODO: Should handle errors
 pub trait HandleApp {
     fn update(&mut self, context: &AppContext) -> Result<()>;
     fn render(&self, context: &AppContext) -> Result<()>;
     fn resize(&mut self, size: &PhysicalSize<u32>) -> Result<()>;
+    fn handle_error(&self, error: Error);
 }
 
 type HandlerCreator =
@@ -47,12 +47,12 @@ pub struct AppContext {
     pub extensions: Rc<Extensions>,
 }
 
-pub struct AppRuntime {
+struct Runtime {
     context: AppContext,
     handler: Box<dyn HandleApp>,
 }
 
-impl AppRuntime {
+impl Runtime {
     fn new(event_loop: &ActiveEventLoop, handler_creator: HandlerCreator) -> Result<Self> {
         let attributes = Window::default_attributes().with_title("Rust Playground");
 
@@ -163,15 +163,15 @@ impl App {
     }
 }
 
-pub enum AppState {
+enum AppState {
     Uninitialized(HandlerCreator),
-    Initialized(AppRuntime),
+    Initialized(Runtime),
 }
 
 impl ApplicationHandler for AppState {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if let Self::Uninitialized(handler_creator) = self {
-            let app = AppRuntime::new(event_loop, *handler_creator);
+            let app = Runtime::new(event_loop, *handler_creator);
 
             if let Ok(app) = app {
                 *self = Self::Initialized(app);
@@ -191,13 +191,19 @@ impl ApplicationHandler for AppState {
             }
             WindowEvent::RedrawRequested => {
                 if let Self::Initialized(app) = self {
-                    app.render().unwrap(); // TODO: Handle errors correctly
+                    if let Err(err) = app.render() {
+                        // TODO: Handle errors correctly
+                        app.handler.handle_error(err);
+                    }
                     app.context.window.request_redraw();
                 }
             }
             WindowEvent::Resized(size) => {
                 if let Self::Initialized(app) = self {
-                    app.resize(size).unwrap(); // TODO: Handle errors correctly
+                    if let Err(err) = app.resize(size) {
+                        // TODO: Handle errors correctly
+                        app.handler.handle_error(err);
+                    }
                 }
             }
             _ => {}
