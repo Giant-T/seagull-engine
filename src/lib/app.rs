@@ -31,11 +31,13 @@ use super::{
 
 // TODO: Should handle errors
 pub trait HandleApp {
+    fn update(&mut self, context: &AppContext) -> Result<()>;
     fn render(&self, context: &AppContext) -> Result<()>;
     fn resize(&mut self, size: &PhysicalSize<u32>) -> Result<()>;
 }
 
-type HandlerCreator = fn(extensions: Rc<Extensions>, size: &PhysicalSize<u32>) -> Result<Box<dyn HandleApp>>;
+type HandlerCreator =
+    fn(extensions: Rc<Extensions>, size: &PhysicalSize<u32>) -> Result<Box<dyn HandleApp>>;
 
 pub struct AppContext {
     window: Window,
@@ -43,10 +45,14 @@ pub struct AppContext {
     surface: Surface<WindowSurface>,
     pub size: PhysicalSize<u32>,
     pub extensions: Rc<Extensions>,
-    pub handler: Box<dyn HandleApp>,
 }
 
-impl AppContext {
+pub struct AppRuntime {
+    context: AppContext,
+    handler: Box<dyn HandleApp>,
+}
+
+impl AppRuntime {
     fn new(event_loop: &ActiveEventLoop, handler_creator: HandlerCreator) -> Result<Self> {
         let attributes = Window::default_attributes().with_title("Rust Playground");
 
@@ -104,28 +110,32 @@ impl AppContext {
         info!("Initialized the window");
 
         return Ok(Self {
-            window,
-            surface,
-            context,
-            size,
             handler: handler_creator(extensions.clone(), &size)?,
-            extensions,
+            context: AppContext {
+                window,
+                surface,
+                context,
+                size,
+                extensions,
+            },
         });
     }
 
     fn render(&mut self) -> Result<()> {
+        self.handler.update(&self.context)?;
+
         unsafe {
             gl::Clear(DEPTH_BUFFER_BIT | COLOR_BUFFER_BIT);
         }
 
-        self.handler.render(self)?;
+        self.handler.render(&self.context)?;
 
-        self.surface.swap_buffers(&self.context)?;
+        self.context.surface.swap_buffers(&self.context.context)?;
         Ok(())
     }
 
     fn resize(&mut self, size: PhysicalSize<u32>) -> Result<()> {
-        self.size = size;
+        self.context.size = size;
 
         self.handler.resize(&size)?;
 
@@ -155,13 +165,13 @@ impl App {
 
 pub enum AppState {
     Uninitialized(HandlerCreator),
-    Initialized(AppContext),
+    Initialized(AppRuntime),
 }
 
 impl ApplicationHandler for AppState {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if let Self::Uninitialized(handler_creator) = self {
-            let app = AppContext::new(event_loop, *handler_creator);
+            let app = AppRuntime::new(event_loop, *handler_creator);
 
             if let Ok(app) = app {
                 *self = Self::Initialized(app);
@@ -182,7 +192,7 @@ impl ApplicationHandler for AppState {
             WindowEvent::RedrawRequested => {
                 if let Self::Initialized(app) = self {
                     app.render().unwrap(); // TODO: Handle errors correctly
-                    app.window.request_redraw();
+                    app.context.window.request_redraw();
                 }
             }
             WindowEvent::Resized(size) => {

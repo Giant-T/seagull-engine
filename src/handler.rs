@@ -1,8 +1,9 @@
 use std::rc::Rc;
 
 use anyhow::Result;
-use seagull_lib::{app::HandleApp, effects::Effect};
+use seagull_lib::{app::{AppContext, HandleApp}, effects::Effect};
 use winit::dpi::PhysicalSize;
+use log::info;
 
 use crate::pixelate::Pixelate;
 
@@ -17,19 +18,25 @@ impl AppHandler {
     ) -> Result<Self> {
         let pixelate = Pixelate::new(extensions, size, 2.0)?;
 
-        Ok(Self { pixelate })
+        Ok(Self { pixelate, })
     }
 }
 
 impl HandleApp for AppHandler {
-    fn render(&self, context: &seagull_lib::app::AppContext) -> Result<()> {
+    fn render(&self, context: &AppContext) -> Result<()> {
         self.pixelate.apply(context, None, None)?;
 
         Ok(())
     }
 
-    fn resize(&mut self, size: &winit::dpi::PhysicalSize<u32>) -> Result<()> {
+    fn resize(&mut self, size: &PhysicalSize<u32>) -> Result<()> {
         self.pixelate.resize(size)?;
+
+        Ok(())
+    }
+
+    fn update(&mut self, _context: &AppContext) -> Result<()> {
+        info!("UPDATE");
 
         Ok(())
     }
