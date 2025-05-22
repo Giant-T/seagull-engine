@@ -1,9 +1,7 @@
 pub mod app;
 pub mod effects;
-pub mod extensions;
 pub mod frame_buffer;
-pub mod gl;
-pub mod program;
+pub mod shader;
 pub mod texture;
 pub mod vertex_buffer;
 pub mod vertex_array;

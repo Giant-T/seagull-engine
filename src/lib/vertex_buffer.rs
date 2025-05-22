@@ -1,36 +1,39 @@
-use std::os::raw::c_void;
+use std::rc::Rc;
 
+use anyhow::Result;
+use bytemuck::cast_slice;
+use glow::{HasContext, STATIC_DRAW};
 use log::info;
 
-use super::gl::{self, STATIC_DRAW};
-
 pub struct VertexBuffer {
-    pub id: u32,
+    pub id: glow::Buffer,
     pub vertex_count: i32,
+    gl: Rc<glow::Context>,
 }
 
 impl VertexBuffer {
-    pub fn new(vertices: &[f32]) -> Self {
-        let mut id = 0;
+    pub fn new(gl: Rc<glow::Context>, vertices: &[f32]) -> Result<Self> {
+        let id;
 
         unsafe {
-            gl::CreateBuffers(1, &mut id);
-            gl::NamedBufferData(id, size_of_val(vertices) as isize, vertices.as_ptr() as *const c_void, STATIC_DRAW);
+            id = gl.create_named_buffer().or_else(|s| Err(anyhow::anyhow!(s)))?;
+            gl.named_buffer_data_u8_slice(id, cast_slice(vertices), STATIC_DRAW);
         }
 
-        info!("Initialized vertex buffer {id}");
+        info!("Initialized vertex buffer {id:?}");
 
-        Self {
+        Ok(Self {
             id,
             vertex_count: (vertices.len() / 3) as i32,
-        }
+            gl,
+        })
     }
 }
 
 impl Drop for VertexBuffer {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteBuffers(1, &self.id);
+            self.gl.delete_buffer(self.id);
         }
     }
 }

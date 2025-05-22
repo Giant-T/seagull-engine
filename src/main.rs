@@ -8,6 +8,6 @@ mod pixelate;
 fn main() {
     env_logger::init();
 
-    let mut app = App::new(|extensions, size| Ok(Box::new(AppHandler::new(extensions, size)?)));
+    let mut app = App::new(|gl, size| Ok(Box::new(AppHandler::new(gl, size)?)));
     app.run().unwrap();
 }

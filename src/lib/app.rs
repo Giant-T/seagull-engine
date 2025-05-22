@@ -1,11 +1,13 @@
 use std::{
-    ffi::{CStr, CString},
+    ffi::CStr,
     num::NonZeroU32,
     process::exit,
     rc::Rc,
+    time::Instant,
 };
 
 use anyhow::{Context, Error, Result};
+use glow::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT, HasContext};
 use glutin::{
     config::ConfigTemplateBuilder,
     context::{ContextAttributesBuilder, PossiblyCurrentContext},
@@ -14,7 +16,7 @@ use glutin::{
     surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface},
 };
 use glutin_winit::DisplayBuilder;
-use log::info;
+use log::{error, info};
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -22,11 +24,6 @@ use winit::{
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     raw_window_handle::HasWindowHandle,
     window::Window,
-};
-
-use super::{
-    extensions::Extensions,
-    gl::{self, COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT},
 };
 
 pub trait HandleApp {
@@ -37,14 +34,21 @@ pub trait HandleApp {
 }
 
 type HandlerCreator =
-    fn(extensions: Rc<Extensions>, size: &PhysicalSize<u32>) -> Result<Box<dyn HandleApp>>;
+    fn(gl: Rc<glow::Context>, size: &PhysicalSize<u32>) -> Result<Box<dyn HandleApp>>;
 
 pub struct AppContext {
     window: Window,
     context: PossiblyCurrentContext,
     surface: Surface<WindowSurface>,
+    last_time: Instant,
     pub size: PhysicalSize<u32>,
-    pub extensions: Rc<Extensions>,
+    pub gl: Rc<glow::Context>,
+}
+
+impl AppContext {
+    pub fn get_delta_time(&self) -> f32 {
+        self.last_time.elapsed().as_secs_f32()
+    }
 }
 
 struct Runtime {
@@ -98,25 +102,25 @@ impl Runtime {
             .make_current(&surface)
             .context("Failed to make context current")?;
 
-        let extensions;
+        let gl;
         unsafe {
             let get_proc_address = |s: &CStr| display.get_proc_address(s) as *const _;
-            gl::load_with(|s| get_proc_address(CString::new(s).unwrap().as_c_str()));
-            extensions = Rc::new(Extensions::load_extensions(get_proc_address)?);
-            gl::Viewport(0, 0, size.width as i32, size.height as i32);
-            gl::ClearColor(0.2, 0.2, 0.2, 1.0);
+            gl = Rc::new(glow::Context::from_loader_function_cstr(get_proc_address));
+            gl.viewport(0, 0, size.width as i32, size.height as i32);
+            gl.clear_color(0.2, 0.2, 0.2, 1.0);
         }
 
         info!("Initialized the window");
 
         return Ok(Self {
-            handler: handler_creator(extensions.clone(), &size)?,
+            handler: handler_creator(gl.clone(), &size)?,
             context: AppContext {
                 window,
                 surface,
                 context,
                 size,
-                extensions,
+                gl,
+                last_time: Instant::now(),
             },
         });
     }
@@ -125,12 +129,14 @@ impl Runtime {
         self.handler.update(&self.context)?;
 
         unsafe {
-            gl::Clear(DEPTH_BUFFER_BIT | COLOR_BUFFER_BIT);
+            self.context.gl.clear(DEPTH_BUFFER_BIT | COLOR_BUFFER_BIT);
         }
 
         self.handler.render(&self.context)?;
 
         self.context.surface.swap_buffers(&self.context.context)?;
+
+        self.context.last_time = Instant::now();
         Ok(())
     }
 
@@ -175,7 +181,10 @@ impl ApplicationHandler for AppState {
 
             if let Ok(app) = app {
                 *self = Self::Initialized(app);
+                return;
             }
+
+            error!("{:?}", app.err());
         }
     }
 

@@ -1,52 +1,54 @@
 use std::rc::Rc;
 
 use anyhow::Result;
+use glow::{
+    COLOR_ATTACHMENT0, DEPTH_ATTACHMENT, DEPTH_COMPONENT24, FRAMEBUFFER, FRAMEBUFFER_COMPLETE,
+    FRAMEBUFFER_INCOMPLETE_ATTACHMENT, FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER,
+    FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS, FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT,
+    FRAMEBUFFER_INCOMPLETE_MULTISAMPLE, FRAMEBUFFER_INCOMPLETE_READ_BUFFER, FRAMEBUFFER_UNDEFINED,
+    FRAMEBUFFER_UNSUPPORTED, HasContext, RGBA8,
+};
 use log::info;
 
 use crate::app::AppContext;
 use crate::texture::Texture;
 
-use super::extensions::Extensions;
-use super::gl::{
-    self, COLOR_ATTACHMENT0, DEPTH_ATTACHMENT, DEPTH_COMPONENT24, FRAMEBUFFER,
-    FRAMEBUFFER_COMPLETE, FRAMEBUFFER_INCOMPLETE_ATTACHMENT, FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER,
-    FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS, FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT,
-    FRAMEBUFFER_INCOMPLETE_MULTISAMPLE, FRAMEBUFFER_INCOMPLETE_READ_BUFFER, FRAMEBUFFER_UNDEFINED,
-    FRAMEBUFFER_UNSUPPORTED, RGBA8,
-};
-
 pub struct FrameBuffer {
-    id: u32,
+    id: glow::Framebuffer,
     width: i32,
     height: i32,
     pub texture: Texture,
     depth_texture: Texture,
-    extensions: Rc<Extensions>,
+    gl: Rc<glow::Context>,
 }
 
 impl FrameBuffer {
-    pub fn new(extensions: Rc<Extensions>, width: i32, height: i32) -> Result<Self> {
-        let mut id = 0;
+    pub fn new(gl: Rc<glow::Context>, width: i32, height: i32) -> Result<Self> {
+        let id;
         unsafe {
-            gl::CreateFramebuffers(1, &mut id);
+            id = gl
+                .create_named_framebuffer()
+                .or_else(|s| Err(anyhow::anyhow!(s)))?;
         }
 
-        let texture = Texture::new(extensions.clone(), width, height, RGBA8)?;
-        let depth_texture = Texture::new(extensions.clone(), width, height, DEPTH_COMPONENT24)?;
+        let texture = Texture::new(gl.clone(), width, height, RGBA8)?;
+        let depth_texture = Texture::new(gl.clone(), width, height, DEPTH_COMPONENT24)?;
 
         unsafe {
-            gl::NamedFramebufferTexture(id, COLOR_ATTACHMENT0, texture.id, 0);
-            gl::NamedFramebufferTexture(id, DEPTH_ATTACHMENT, depth_texture.id, 0);
+            gl.named_framebuffer_texture(Some(id), COLOR_ATTACHMENT0, Some(texture.id), 0);
+            gl.named_framebuffer_texture(Some(id), DEPTH_ATTACHMENT, Some(depth_texture.id), 0);
 
-            let status = gl::CheckNamedFramebufferStatus(id, FRAMEBUFFER);
+            let status = gl.check_named_framebuffer_status(Some(id), FRAMEBUFFER);
 
             Self::print_frame_buffer_status(status);
             if status != FRAMEBUFFER_COMPLETE {
                 return Err(anyhow::anyhow!("FrameBuffer non complete"));
             }
+
+            gl.bind_framebuffer(FRAMEBUFFER, None);
         }
 
-        info!("Initialized frame buffer {id}");
+        info!("Initialized frame buffer {id:?}");
 
         Ok(Self {
             id,
@@ -54,7 +56,7 @@ impl FrameBuffer {
             height,
             texture,
             depth_texture,
-            extensions,
+            gl,
         })
     }
 
@@ -69,8 +71,18 @@ impl FrameBuffer {
         self.depth_texture.resize(width, height)?;
 
         unsafe {
-            gl::NamedFramebufferTexture(self.id, COLOR_ATTACHMENT0, self.texture.id, 0);
-            gl::NamedFramebufferTexture(self.id, DEPTH_ATTACHMENT, self.depth_texture.id, 0);
+            self.gl.named_framebuffer_texture(
+                Some(self.id),
+                COLOR_ATTACHMENT0,
+                Some(self.texture.id),
+                0,
+            );
+            self.gl.named_framebuffer_texture(
+                Some(self.id),
+                DEPTH_ATTACHMENT,
+                Some(self.depth_texture.id),
+                0,
+            );
         }
 
         Ok(())
@@ -81,8 +93,8 @@ impl FrameBuffer {
     ///
     pub fn bind(&self) {
         unsafe {
-            gl::Viewport(0, 0, self.width, self.height);
-            gl::BindFramebuffer(FRAMEBUFFER, self.id);
+            self.gl.viewport(0, 0, self.width, self.height);
+            self.gl.bind_framebuffer(FRAMEBUFFER, Some(self.id));
         }
     }
 
@@ -91,8 +103,9 @@ impl FrameBuffer {
     ///
     pub fn unbind(&self, context: &AppContext) {
         unsafe {
-            gl::Viewport(0, 0, context.size.width as i32, context.size.height as i32);
-            gl::BindFramebuffer(FRAMEBUFFER, 0);
+            self.gl
+                .viewport(0, 0, context.size.width as i32, context.size.height as i32);
+            self.gl.bind_framebuffer(FRAMEBUFFER, None);
         }
     }
 
@@ -115,7 +128,7 @@ impl FrameBuffer {
 impl Drop for FrameBuffer {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteFramebuffers(1, &self.id);
+            self.gl.delete_framebuffer(self.id);
         }
     }
 }

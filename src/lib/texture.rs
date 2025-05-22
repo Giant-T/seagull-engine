@@ -1,74 +1,76 @@
 use std::rc::Rc;
 
 use anyhow::Result;
-use log::info;
-
-use super::{
-    extensions::Extensions,
-    gl::{
-        self, CLAMP_TO_EDGE, NEAREST, TEXTURE_2D, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER,
-        TEXTURE_WRAP_S, TEXTURE_WRAP_T,
-    },
+use glow::{
+    CLAMP_TO_EDGE, HasContext, NEAREST, TEXTURE_2D, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER,
+    TEXTURE_WRAP_S, TEXTURE_WRAP_T,
 };
+use log::info;
 
 // TODO: create an enum for texture formats
 
 pub struct Texture {
-    pub id: u32,
-    pub handle: u64,
+    pub id: glow::Texture,
     format: u32,
-    extensions: Rc<Extensions>,
+    gl: Rc<glow::Context>,
 }
 
 impl Texture {
-    pub fn new(extensions: Rc<Extensions>, width: i32, height: i32, format: u32) -> Result<Self> {
-        let mut id = 0;
-        let handle;
+    pub fn new(gl: Rc<glow::Context>, width: i32, height: i32, format: u32) -> Result<Self> {
+        let id = unsafe {
+            gl.create_named_texture(TEXTURE_2D)
+                .or_else(|s| Err(anyhow::anyhow!(s)))?
+        };
         unsafe {
-            gl::CreateTextures(TEXTURE_2D, 1, &mut id);
-            gl::TextureStorage2D(id, 1, format, width, height);
-            gl::TextureParameteri(id, TEXTURE_MIN_FILTER, NEAREST as i32);
-            gl::TextureParameteri(id, TEXTURE_MAG_FILTER, NEAREST as i32);
-            gl::TextureParameteri(id, TEXTURE_WRAP_S, CLAMP_TO_EDGE as i32);
-            gl::TextureParameteri(id, TEXTURE_WRAP_T, CLAMP_TO_EDGE as i32);
-
-            handle = (extensions.gl_get_texture_handle_arb)(id);
-            (extensions.gl_make_texture_handle_resident_arb)(handle);
+            gl.texture_storage_2d(id, 1, format, width, height);
+            gl.texture_parameter_i32(id, TEXTURE_MIN_FILTER, NEAREST as i32);
+            gl.texture_parameter_i32(id, TEXTURE_MAG_FILTER, NEAREST as i32);
+            gl.texture_parameter_i32(id, TEXTURE_WRAP_S, CLAMP_TO_EDGE as i32);
+            gl.texture_parameter_i32(id, TEXTURE_WRAP_T, CLAMP_TO_EDGE as i32);
         }
 
-        info!("Initialized texture {id}");
+        info!("Initialized texture {id:?}");
 
-        Ok(Self {
-            id,
-            handle,
-            format,
-            extensions,
-        })
+        Ok(Self { id, format, gl })
     }
 
     pub fn resize(&mut self, width: i32, height: i32) -> Result<()> {
         unsafe {
-            gl::DeleteTextures(1, &self.id);
+            self.gl.delete_texture(self.id);
 
-            gl::CreateTextures(TEXTURE_2D, 1, &mut self.id);
-            gl::TextureStorage2D(self.id, 1, self.format, width, height);
-            gl::TextureParameteri(self.id, TEXTURE_MIN_FILTER, NEAREST as i32);
-            gl::TextureParameteri(self.id, TEXTURE_MAG_FILTER, NEAREST as i32);
-            gl::TextureParameteri(self.id, TEXTURE_WRAP_S, CLAMP_TO_EDGE as i32);
-            gl::TextureParameteri(self.id, TEXTURE_WRAP_T, CLAMP_TO_EDGE as i32);
-
-            self.handle = (self.extensions.gl_get_texture_handle_arb)(self.id.into());
-            (self.extensions.gl_make_texture_handle_resident_arb)(self.handle);
+            self.id = self
+                .gl
+                .create_named_texture(TEXTURE_2D)
+                .or_else(|s| Err(anyhow::anyhow!(s)))?;
+            self.gl
+                .texture_storage_2d(self.id, 1, self.format, width, height);
+            self.gl
+                .texture_parameter_i32(self.id, TEXTURE_MIN_FILTER, NEAREST as i32);
+            self.gl
+                .texture_parameter_i32(self.id, TEXTURE_MAG_FILTER, NEAREST as i32);
+            self.gl
+                .texture_parameter_i32(self.id, TEXTURE_WRAP_S, CLAMP_TO_EDGE as i32);
+            self.gl
+                .texture_parameter_i32(self.id, TEXTURE_WRAP_T, CLAMP_TO_EDGE as i32);
         }
 
+        info!("Resized texture {:?}", self.id);
+
         Ok(())
+    }
+
+    pub fn activate_texture(&self, unit: u32) {
+        unsafe {
+            self.gl.active_texture(unit);
+            self.gl.bind_texture(TEXTURE_2D, Some(self.id));
+        }
     }
 }
 
 impl Drop for Texture {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteTextures(1, &self.id);
+            self.gl.delete_texture(self.id);
         }
     }
 }

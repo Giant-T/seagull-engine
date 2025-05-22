@@ -1,9 +1,12 @@
 use std::rc::Rc;
 
 use anyhow::Result;
-use seagull_lib::{app::{AppContext, HandleApp}, effects::Effect};
+use log::{error, info};
+use seagull_lib::{
+    app::{AppContext, HandleApp},
+    effects::Effect,
+};
 use winit::dpi::PhysicalSize;
-use log::info;
 
 use crate::pixelate::Pixelate;
 
@@ -12,13 +15,10 @@ pub struct AppHandler {
 }
 
 impl AppHandler {
-    pub fn new(
-        extensions: Rc<seagull_lib::extensions::Extensions>,
-        size: &PhysicalSize<u32>,
-    ) -> Result<Self> {
-        let pixelate = Pixelate::new(extensions, size, 2.0)?;
+    pub fn new(gl: Rc<glow::Context>, size: &PhysicalSize<u32>) -> Result<Self> {
+        let pixelate = Pixelate::new(gl.clone(), size, 2.0)?;
 
-        Ok(Self { pixelate, })
+        Ok(Self { pixelate })
     }
 }
 
@@ -35,13 +35,15 @@ impl HandleApp for AppHandler {
         Ok(())
     }
 
-    fn update(&mut self, _context: &AppContext) -> Result<()> {
-        info!("UPDATE");
+    fn update(&mut self, context: &AppContext) -> Result<()> {
+        // info!("delta time: {}s", context.get_delta_time());
 
         Ok(())
     }
 
+    // TODO: Find out what i should do
     fn handle_error(&self, error: anyhow::Error) {
-        todo!()
+        error!("{error:?}");
+        panic!();
     }
 }
