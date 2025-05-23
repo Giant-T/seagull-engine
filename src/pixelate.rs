@@ -1,4 +1,4 @@
-use std::{rc::Rc, time::Instant};
+use std::{sync::Arc, time::Instant};
 
 use anyhow::Result;
 use glow::{TEXTURE0, TRIANGLE_FAN, UniformLocation};
@@ -6,8 +6,8 @@ use log::info;
 use winit::dpi::PhysicalSize;
 
 use seagull_lib::{
-    app::AppContext, effects::Effect, frame_buffer::FrameBuffer, shader::Shader,
-    vertex_array::VertexArray, vertex_buffer::VertexBuffer,
+    frame_buffer::FrameBuffer, shader::Shader, vertex_array::VertexArray,
+    vertex_buffer::VertexBuffer,
 };
 
 pub struct Pixelate {
@@ -22,7 +22,7 @@ pub struct Pixelate {
 }
 
 impl Pixelate {
-    pub fn new(gl: Rc<glow::Context>, size: &PhysicalSize<u32>, scale: f32) -> Result<Self> {
+    pub fn new(gl: Arc<glow::Context>, size: &PhysicalSize<u32>, scale: f32) -> Result<Self> {
         let fbo = FrameBuffer::new(
             gl.clone(),
             (size.width as f32 / scale) as i32,
@@ -61,12 +61,13 @@ impl Pixelate {
             start: Instant::now(),
         })
     }
-}
 
-impl Effect for Pixelate {
-    fn apply(
+    pub fn apply(
         &self,
-        context: &AppContext,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
         _source: Option<&FrameBuffer>,
         target: Option<&FrameBuffer>,
     ) -> Result<()> {
@@ -76,7 +77,7 @@ impl Effect for Pixelate {
         self.fragment_shader
             .uniform_1f(&self.elapsed_loc, time_since_start.as_millis() as f32);
         self.vertex_array.draw(TRIANGLE_FAN);
-        self.fbo.unbind(context);
+        self.fbo.unbind(x, y, width, height);
 
         if let Some(target) = target {
             target.bind();
@@ -88,13 +89,13 @@ impl Effect for Pixelate {
         self.vertex_array.draw(TRIANGLE_FAN);
 
         if let Some(target) = target {
-            target.unbind(&context);
+            target.unbind(x, y, width, height);
         }
 
         Ok(())
     }
 
-    fn resize(&mut self, size: &PhysicalSize<u32>) -> Result<()> {
+    pub fn resize(&mut self, size: &PhysicalSize<u32>) -> Result<()> {
         self.fbo.resize(
             (size.width as f32 / self.scale) as i32,
             (size.height as f32 / self.scale) as i32,

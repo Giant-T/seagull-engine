@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use anyhow::Result;
 use bytemuck::cast_slice;
@@ -8,11 +8,11 @@ use log::info;
 pub struct VertexBuffer {
     pub id: glow::Buffer,
     pub vertex_count: i32,
-    gl: Rc<glow::Context>,
+    gl: Arc<glow::Context>,
 }
 
 impl VertexBuffer {
-    pub fn new(gl: Rc<glow::Context>, vertices: &[f32]) -> Result<Self> {
+    pub fn new(gl: Arc<glow::Context>, vertices: &[f32]) -> Result<Self> {
         let id;
 
         unsafe {

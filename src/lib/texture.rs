@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use anyhow::Result;
 use glow::{
@@ -12,11 +12,11 @@ use log::info;
 pub struct Texture {
     pub id: glow::Texture,
     format: u32,
-    gl: Rc<glow::Context>,
+    gl: Arc<glow::Context>,
 }
 
 impl Texture {
-    pub fn new(gl: Rc<glow::Context>, width: i32, height: i32, format: u32) -> Result<Self> {
+    pub fn new(gl: Arc<glow::Context>, width: i32, height: i32, format: u32) -> Result<Self> {
         let id = unsafe {
             gl.create_named_texture(TEXTURE_2D)
                 .or_else(|s| Err(anyhow::anyhow!(s)))?

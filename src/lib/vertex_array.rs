@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use anyhow::Result;
 use glow::{FLOAT, HasContext};
@@ -9,11 +9,11 @@ use super::vertex_buffer::VertexBuffer;
 pub struct VertexArray {
     pub id: glow::VertexArray,
     vertex_buffer: VertexBuffer,
-    gl: Rc<glow::Context>,
+    gl: Arc<glow::Context>,
 }
 
 impl VertexArray {
-    pub fn new(gl: Rc<glow::Context>, vertex_buffer: VertexBuffer) -> Result<Self> {
+    pub fn new(gl: Arc<glow::Context>, vertex_buffer: VertexBuffer) -> Result<Self> {
         let id;
 
         unsafe {

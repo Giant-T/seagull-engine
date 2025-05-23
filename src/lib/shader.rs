@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use anyhow::Result;
 use glow::{HasContext, UniformLocation};
@@ -6,11 +6,11 @@ use log::info;
 
 pub struct Shader {
     pub id: glow::Program,
-    gl: Rc<glow::Context>,
+    gl: Arc<glow::Context>,
 }
 
 impl Shader {
-    pub fn new(gl: Rc<glow::Context>, vertex_source: &str, fragment_source: &str) -> Result<Self> {
+    pub fn new(gl: Arc<glow::Context>, vertex_source: &str, fragment_source: &str) -> Result<Self> {
         unsafe {
             let vertex_shader = gl
                 .create_shader(glow::VERTEX_SHADER)

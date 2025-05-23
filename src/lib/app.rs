@@ -1,10 +1,4 @@
-use std::{
-    ffi::CStr,
-    num::NonZeroU32,
-    process::exit,
-    rc::Rc,
-    time::Instant,
-};
+use std::{ffi::CStr, num::NonZeroU32, process::exit, sync::Arc, time::Instant};
 
 use anyhow::{Context, Error, Result};
 use glow::{COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT, HasContext};
@@ -28,32 +22,40 @@ use winit::{
 
 pub trait HandleApp {
     fn update(&mut self, context: &AppContext) -> Result<()>;
-    fn render(&self, context: &AppContext) -> Result<()>;
+    fn render(&mut self, context: &AppContext) -> Result<()>;
     fn resize(&mut self, size: &PhysicalSize<u32>) -> Result<()>;
     fn handle_error(&self, error: Error);
+    fn event(&mut self, window: &Window, event: &WindowEvent);
 }
 
-type HandlerCreator =
-    fn(gl: Rc<glow::Context>, size: &PhysicalSize<u32>) -> Result<Box<dyn HandleApp>>;
+type HandlerCreator = fn(
+    gl: Arc<glow::Context>,
+    window: &Window,
+    size: &PhysicalSize<u32>,
+) -> Result<Box<dyn HandleApp>>;
 
 pub struct AppContext {
     window: Window,
-    context: PossiblyCurrentContext,
-    surface: Surface<WindowSurface>,
     last_time: Instant,
     pub size: PhysicalSize<u32>,
-    pub gl: Rc<glow::Context>,
+    pub gl: Arc<glow::Context>,
 }
 
 impl AppContext {
     pub fn get_delta_time(&self) -> f32 {
         self.last_time.elapsed().as_secs_f32()
     }
+
+    pub fn get_window(&self) -> &Window {
+        &self.window
+    }
 }
 
 struct Runtime {
     context: AppContext,
     handler: Box<dyn HandleApp>,
+    current_context: PossiblyCurrentContext,
+    surface: Surface<WindowSurface>,
 }
 
 impl Runtime {
@@ -105,7 +107,7 @@ impl Runtime {
         let gl;
         unsafe {
             let get_proc_address = |s: &CStr| display.get_proc_address(s) as *const _;
-            gl = Rc::new(glow::Context::from_loader_function_cstr(get_proc_address));
+            gl = Arc::new(glow::Context::from_loader_function_cstr(get_proc_address));
             gl.viewport(0, 0, size.width as i32, size.height as i32);
             gl.clear_color(0.2, 0.2, 0.2, 1.0);
         }
@@ -113,11 +115,11 @@ impl Runtime {
         info!("Initialized the window");
 
         return Ok(Self {
-            handler: handler_creator(gl.clone(), &size)?,
+            handler: handler_creator(gl.clone(), &window, &size)?,
+            surface,
+            current_context: context,
             context: AppContext {
                 window,
-                surface,
-                context,
                 size,
                 gl,
                 last_time: Instant::now(),
@@ -134,7 +136,7 @@ impl Runtime {
 
         self.handler.render(&self.context)?;
 
-        self.context.surface.swap_buffers(&self.context.context)?;
+        self.surface.swap_buffers(&self.current_context)?;
 
         self.context.last_time = Instant::now();
         Ok(())
@@ -194,25 +196,27 @@ impl ApplicationHandler for AppState {
         _window_id: winit::window::WindowId,
         event: WindowEvent,
     ) {
+        let Self::Initialized(app) = self else {
+            return;
+        };
+
+        app.handler.event(&app.context.window, &event);
+
         match event {
             WindowEvent::CloseRequested => {
                 exit(0);
             }
             WindowEvent::RedrawRequested => {
-                if let Self::Initialized(app) = self {
-                    if let Err(err) = app.render() {
-                        // TODO: Handle errors correctly
-                        app.handler.handle_error(err);
-                    }
-                    app.context.window.request_redraw();
+                if let Err(err) = app.render() {
+                    // TODO: Handle errors correctly
+                    app.handler.handle_error(err);
                 }
+                app.context.window.request_redraw();
             }
             WindowEvent::Resized(size) => {
-                if let Self::Initialized(app) = self {
-                    if let Err(err) = app.resize(size) {
-                        // TODO: Handle errors correctly
-                        app.handler.handle_error(err);
-                    }
+                if let Err(err) = app.resize(size) {
+                    // TODO: Handle errors correctly
+                    app.handler.handle_error(err);
                 }
             }
             _ => {}

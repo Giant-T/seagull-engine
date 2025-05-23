@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use anyhow::Result;
 use glow::{
@@ -10,7 +10,6 @@ use glow::{
 };
 use log::info;
 
-use crate::app::AppContext;
 use crate::texture::Texture;
 
 pub struct FrameBuffer {
@@ -19,11 +18,11 @@ pub struct FrameBuffer {
     height: i32,
     pub texture: Texture,
     depth_texture: Texture,
-    gl: Rc<glow::Context>,
+    gl: Arc<glow::Context>,
 }
 
 impl FrameBuffer {
-    pub fn new(gl: Rc<glow::Context>, width: i32, height: i32) -> Result<Self> {
+    pub fn new(gl: Arc<glow::Context>, width: i32, height: i32) -> Result<Self> {
         let id;
         unsafe {
             id = gl
@@ -101,10 +100,10 @@ impl FrameBuffer {
     ///
     /// Unbinds this frame buffer to stop being the current rendering target
     ///
-    pub fn unbind(&self, context: &AppContext) {
+    pub fn unbind(&self, x: i32, y: i32, width: i32, height: i32) {
         unsafe {
             self.gl
-                .viewport(0, 0, context.size.width as i32, context.size.height as i32);
+                .viewport(x, y, width, height);
             self.gl.bind_framebuffer(FRAMEBUFFER, None);
         }
     }

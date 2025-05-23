@@ -1,5 +1,4 @@
 pub mod app;
-pub mod effects;
 pub mod frame_buffer;
 pub mod shader;
 pub mod texture;
