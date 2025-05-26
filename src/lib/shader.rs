@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use glm::Vec2;
 use glow::{HasContext, UniformLocation};
 use log::info;
 
@@ -82,6 +83,17 @@ impl Shader {
     pub fn uniform_1f(&self, location: &UniformLocation, v0: f32) {
         unsafe {
             self.gl.uniform_1_f32(Some(location), v0);
+        }
+    }
+
+    pub fn uniform_2f_slice(&self, location: &UniformLocation, v0: &[Vec2]) {
+        unsafe {
+            self.gl.uniform_2_f32_slice(
+                Some(location),
+                &v0.iter()
+                    .flat_map(|v| v.as_array().iter().cloned())
+                    .collect::<Vec<_>>(),
+            );
         }
     }
 }

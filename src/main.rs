@@ -3,6 +3,7 @@ use handler::AppHandler;
 use seagull_lib::app::App;
 
 mod handler;
+mod voronoi;
 mod pixelate;
 
 fn main() {

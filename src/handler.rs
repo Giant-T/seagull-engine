@@ -3,22 +3,31 @@ use std::sync::{Arc, Mutex};
 use anyhow::Result;
 use egui::{CentralPanel, Id, SidePanel};
 use egui_glow::Painter;
+use glm::{Vec2, vec2};
 use glow::{HasContext, SCISSOR_TEST};
 use log::{error, info};
+use rand::Rng;
 use seagull_lib::app::{AppContext, HandleApp};
 use winit::{dpi::PhysicalSize, event::WindowEvent, window::Window};
 
-use crate::pixelate::Pixelate;
+use crate::voronoi::{self, Voronoi};
 
 pub struct AppHandler {
-    pixelate: Arc<Mutex<Pixelate>>,
+    voronoi: Voronoi,
     egui_state: egui_winit::State,
     egui_painter: Painter,
 }
 
+fn generate_random_vec2s() -> Vec<Vec2> {
+    let mut rng = rand::rng();
+    (0..16)
+        .map(|_| vec2(rng.random_range(-1.0..1.0), rng.random_range(-1.0..1.0)))
+        .collect()
+}
+
 impl AppHandler {
     pub fn new(gl: Arc<glow::Context>, window: &Window, size: &PhysicalSize<u32>) -> Result<Self> {
-        let pixelate = Arc::new(Mutex::new(Pixelate::new(gl.clone(), size, 2.0)?));
+        let voronoi = Voronoi::new(gl.clone(), generate_random_vec2s())?;
         let egui_painter = Painter::new(gl.clone(), "", None, true)?;
         let egui_context = egui::Context::default();
         let egui_state = egui_winit::State::new(
@@ -31,7 +40,7 @@ impl AppHandler {
         );
 
         Ok(Self {
-            pixelate,
+            voronoi,
             egui_state,
             egui_painter,
         })
@@ -41,6 +50,7 @@ impl AppHandler {
 impl HandleApp for AppHandler {
     fn render(&mut self, context: &AppContext) -> Result<()> {
         let size = [context.size.width, context.size.height];
+        self.voronoi.apply(0, 0, size[0] as i32, size[1] as i32)?;
 
         let input = self.egui_state.take_egui_input(context.get_window());
         let full_output = self.egui_state.egui_ctx().run(input, |ctx| {
@@ -50,36 +60,6 @@ impl HandleApp for AppHandler {
                     ui.label("Hello, World!");
                     ui.allocate_space(ui.available_size());
                 });
-
-            CentralPanel::default().show(ctx, |ui| {
-                egui::Frame::canvas(ui.style()).show(ui, |ui| {
-                    let (rect, _) = ui.allocate_exact_size(
-                        egui::Vec2::new(ui.available_width(), ui.available_height()),
-                        egui::Sense::hover(),
-                    );
-
-                    let pixelate = self.pixelate.clone();
-                    let callback = egui::PaintCallback {
-                        rect,
-                        callback: Arc::new(egui_glow::CallbackFn::new(move |info, painter| {
-                            let viewport = info.viewport_in_pixels();
-                            unsafe {
-                                painter.gl().disable(SCISSOR_TEST); // Clean up
-                            }
-                            let _ = pixelate.lock().unwrap().apply(
-                                viewport.left_px,
-                                viewport.top_px,
-                                viewport.width_px,
-                                viewport.height_px,
-                                None,
-                                None,
-                            );
-                        })),
-                    };
-
-                    ui.painter().add(callback)
-                });
-            });
         });
 
         self.egui_state
@@ -105,9 +85,7 @@ impl HandleApp for AppHandler {
         }
     }
 
-    fn resize(&mut self, size: &PhysicalSize<u32>) -> Result<()> {
-        self.pixelate.lock().unwrap().resize(size)?;
-
+    fn resize(&mut self, _size: &PhysicalSize<u32>) -> Result<()> {
         Ok(())
     }
 

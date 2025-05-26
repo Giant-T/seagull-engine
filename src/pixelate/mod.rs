@@ -29,13 +29,13 @@ impl Pixelate {
             (size.height as f32 / scale) as i32,
         )?;
         let fragment_shader =
-            Shader::new(gl.clone(), include_str!("VS.glsl"), include_str!("FS.glsl"))?;
+            Shader::new(gl.clone(), include_str!("../VS.glsl"), include_str!("FS.glsl"))?;
         let elapsed_loc = fragment_shader.get_loc("Elapsed")?;
 
         let display_shader = Shader::new(
             gl.clone(),
-            include_str!("VS.glsl"),
-            include_str!("Display-FS.glsl"),
+            include_str!("../VS.glsl"),
+            include_str!("../Display-FS.glsl"),
         )?;
         let texture_loc = display_shader.get_loc("FBO")?;
 
